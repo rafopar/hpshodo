@@ -1,3 +1,6 @@
+#ifndef FILL_SPE_HISTS_H
+#define FILL_SPE_HISTS_H
+
 #define Fill_SPE_hists_cxx
 #include "Fill_SPE_hists.h"
 #include <TH2.h>
@@ -41,8 +44,8 @@ void Fill_SPE_hists::Loop()
    TH1D *h_signal_slot4_[n_PMT_ch];
    
    for( int i = 0; i < n_PMT_ch; i++ ){
-       h_signal_slot3_[i] = new TH1D(Form("h_signal_slot3_%d", i), "", 200, -200., 550.);
-       h_signal_slot4_[i] = new TH1D(Form("h_signal_slot4_%d", i), "", 200, -200., 550.);
+       h_signal_slot3_[i] = new TH1D(Form("h_signal_slot3_%d", i), "", 200, -50., 550.);
+       h_signal_slot4_[i] = new TH1D(Form("h_signal_slot4_%d", i), "", 200, -50., 550.);
    }
    
    Long64_t nbytes = 0, nb = 0;
@@ -78,3 +81,6 @@ void Fill_SPE_hists::Loop()
    
    gDirectory->Write();
 }
+
+#endif	// FILL_SPE_HISTS_H
+

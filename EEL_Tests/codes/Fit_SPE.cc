@@ -62,8 +62,10 @@ int main(int argc, char** argv) {
     
     const int n_slot = 2;
     
-    string HV_PMTs[n_slot] = {"910V", "985V"};
-    string PMT_Names[n_slot] = {"SA3857", "SA2060"};
+    // string HV_PMTs[n_slot] = {"935V", "965V"};
+    // string PMT_Names[n_slot] = {"SA3857", "SA2060"};
+    string HV_PMTs[n_slot] = {"910V", "910V"};
+    string PMT_Names[n_slot] = {"SA3980", "SA3857"};
     
     ofstream out_Gains[2];
     

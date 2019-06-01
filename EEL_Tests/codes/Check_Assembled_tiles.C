@@ -7,6 +7,7 @@
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
+#include <TDBTool.hh>
 
 #include <fstream>
 
@@ -38,13 +39,27 @@ void Check_Assembled_tiles::Loop() {
     //by  b_branchname->GetEntry(ientry); //read only this branch
     if (fChain == 0) return;
 
+    // ============= Lets initialize the DB =====================
+    TString db_Name = "hodoDB";
+    TString host = "localhost";
+    int port = 3306;
+    TString user = "hpshodo";
+
+    TDBTool db(db_Name.Data(), host.Data(), port, user.Data());    
+    
+    Double_t *ADC2Energy_Top_vals = db.GetEntry_d("ADC2Energy_Top", frun);
+    Double_t *ADC2Energy_Bot_vals = db.GetEntry_d("ADC2Energy_Bot", frun);
+       
     const int n_half = 2; // top and bottom
     const int n_layer = 2; // L1 and L2
     const int n_tile_perlayer = 5; // Five tiles per layer
     const int n_tile_side = 2; // small angle and high angle
     const int n_PMT_ch = 16;
-
-    string half_names[n_half] = {"Bot", "Top"};
+    
+    const double two_hole_scale = 1.25;
+    
+    
+    string half_names[n_half] = {"Top", "Bot"};
     string Layer_names[n_layer] = {"L1", "L2"};
     string Tile_Indexes[n_tile_perlayer] = {"1", "2", "3", "4", "5"};
     string Tile_side_names[n_tile_side] = {"Edge", "Middle"};
@@ -54,8 +69,13 @@ void Check_Assembled_tiles::Loop() {
     double Nphe1_[n_PMT_ch];
     double Nphe2_[n_PMT_ch];
     
-    ifstream inp_gains_pmt1("Gains_SA3857_910V.dat");
-    ifstream inp_gains_pmt2("Gains_SA2060_985V.dat");
+    double Energy_Top[n_PMT_ch];
+    double Energy_Bot[n_PMT_ch];
+    
+//    ifstream inp_gains_pmt1("Gains_SA3857_910V.dat");
+//    ifstream inp_gains_pmt2("Gains_SA2060_985V.dat");
+    ifstream inp_gains_pmt1("Gains_SA3980_910V.dat");
+    ifstream inp_gains_pmt2("Gains_SA3857_910V.dat");
 
     int ch;
     double gain;
@@ -82,6 +102,7 @@ void Check_Assembled_tiles::Loop() {
     TFile *file_out = new TFile(Form("../Data/Check_Assembled_%d.root", frun), "Recreate");
     TH1D * h_signal_[n_half][n_layer][n_tile_perlayer][n_tile_side];
     TH1D * h_Nphe_[n_half][n_layer][n_tile_perlayer][n_tile_side];
+    TH1D * h_Edep_[n_half][n_layer][n_tile_perlayer][n_tile_side];
 
 
     for (int i_half = 0; i_half < n_half; i_half++) {
@@ -96,7 +117,10 @@ void Check_Assembled_tiles::Loop() {
                     h_Nphe_[i_half][i_layer][i_ind][i_side] = new TH1D(Form("h_Nphe_%s_%s_%s_%s", 
                             half_names[i_half].c_str(), Layer_names[i_layer].c_str(), Tile_Indexes[i_ind].c_str(), Tile_side_names[i_side].c_str()), "",
                             200, -1., 55.);
-                    
+                 
+                    h_Edep_[i_half][i_layer][i_ind][i_side] = new TH1D( Form("h_Edep_%s_%s_%s_%s",  half_names[i_half].c_str(), Layer_names[i_layer].c_str(), 
+                            Tile_Indexes[i_ind].c_str(), Tile_side_names[i_side].c_str()), "", 200, -200., 3000 );
+                                        
                 }
 
             }
@@ -130,317 +154,383 @@ void Check_Assembled_tiles::Loop() {
         for( int i_ch = 0; i_ch < n_PMT_ch; i_ch++ ){
             Nphe1_[i_ch] = signal_1_[i_ch]/gain_signal1_[i_ch];
             Nphe2_[i_ch] = signal_2_[i_ch]/gain_signal2_[i_ch];
+            
+            Energy_Top[i_ch] = signal_2_[i_ch]*ADC2Energy_Top_vals[i_ch];
+            Energy_Bot[i_ch] = signal_1_[i_ch]*ADC2Energy_Bot_vals[i_ch];
         }
         
         
-        bool bot_edge_cosmic = signal_3_[1] > 500. && signal_3_[9] > 500.;
-        bool bot_middle_cosmic = (signal_3_[13] > 200) && (signal_3_[4] + signal_3_[5] > 500);
+        bool top_edge_cosmic = signal_3_[1] > 200. && signal_3_[0] > 200. && signal_3_[8] > 200. && signal_3_[9] > 200.;
+        bool top_middle_cosmic = (signal_3_[12] + signal_3_[13] > 500) && (signal_3_[4] + signal_3_[5] > 500);
         
-        bool top_edge_cosmic = signal_3_[2] + signal_3_[3] > 650 && signal_3_[10] + signal_3_[11] > 800.;
-        bool top_middle_cosmic = signal_3_[7] > 200 && signal_3_[14] + signal_3_[15] > 500.;
-        
-        
-        // ================================  L1 Bottom tiles =======================================
+        bool bot_edge_cosmic = signal_3_[2] > 200. && signal_3_[3] > 200 && signal_3_[10] > 200.;
+        bool bot_middle_cosmic = signal_3_[6] + signal_3_[7] > 450  && signal_3_[14] > 200.;
+                
+        // ================================  L1 Top tiles =======================================
         
         // L1 -1
-        if( signal_2_[8] > 700. && signal_2_[4] < 200. && signal_2_[5] < 200. && (signal_2_[10] < 250 && signal_2_[11] < 250.) ){
-            if( bot_edge_cosmic ){
+        //if( signal_2_[8] > 700. && signal_2_[4] < 200. && signal_2_[5] < 200. && (signal_2_[10] < 250 && signal_2_[11] < 250.) ){
+        if( signal_2_[8] > 700. && signal_2_[4] < 80. && signal_2_[5] < 80. && (signal_2_[10] < 80 && signal_2_[11] < 80.) ){
+            if( top_edge_cosmic ){
                 h_signal_[0][0][0][0]->Fill(signal_2_[7]);
                 h_Nphe_[0][0][0][0]->Fill(Nphe2_[7]);
+                h_Edep_[0][0][0][0]->Fill(Energy_Top[7]);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][0][0][1]->Fill(signal_2_[7]);
                 h_Nphe_[0][0][0][1]->Fill(Nphe2_[7]);
+                h_Edep_[0][0][0][1]->Fill(Energy_Top[7]);
             }
         }
         
         // L1-2
-        if( ((signal_2_[10] + signal_2_[11] > 1000.) || signal_2_[8] > 700. ) && signal_2_[7] < 350. && signal_2_[3] < 350. && signal_2_[2] < 350. ){
+        //if( ((signal_2_[10] + signal_2_[11] > 1000.) || signal_2_[8] > 700. ) && signal_2_[7] < 350. && signal_2_[3] < 350. && signal_2_[2] < 350. ){
+        if( ((signal_2_[10] + signal_2_[11] > 1000.) || signal_2_[8] > 700. ) && signal_2_[7] < 80. && signal_2_[3] < 80. && signal_2_[2] < 80. ){
             
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][0][1][0]->Fill(signal_2_[4] + signal_2_[5]);
                 h_Nphe_[0][0][1][0]->Fill(Nphe2_[4] + Nphe2_[5]);
+                h_Edep_[0][0][1][0]->Fill(two_hole_scale*(Energy_Top[4] + Energy_Top[5])/2.);
             }
             
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][0][1][1]->Fill(signal_2_[4] + signal_2_[5]);
                 h_Nphe_[0][0][1][1]->Fill(Nphe2_[4] + Nphe2_[5]);
+                h_Edep_[0][0][1][1]->Fill(two_hole_scale*(Energy_Top[4] + Energy_Top[5])/2.);
             }
             
         }
         
         // L1-3
-        if( ((signal_2_[10] + signal_2_[11] > 1000.) || signal_2_[12] + signal_2_[13] > 600 ) && signal_2_[4] < 250. && signal_2_[5] < 250. 
-                && signal_2_[0] < 250. && signal_2_[1] < 250. ){
+        //if( ((signal_2_[10] + signal_2_[11] > 1000.) || signal_2_[12] + signal_2_[13] > 600 ) && signal_2_[4] < 250. && signal_2_[5] < 250. 
+        if( ((signal_2_[10] + signal_2_[11] > 1000.) || signal_2_[12] + signal_2_[13] > 600 ) && signal_2_[4] < 80. && signal_2_[5] < 80. 
+                && signal_2_[0] < 80. && signal_2_[1] < 80. ){
             
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][0][2][0]->Fill(signal_2_[2] + signal_2_[3]);
                 h_Nphe_[0][0][2][0]->Fill(Nphe2_[2] + Nphe2_[3]);
+                h_Edep_[0][0][2][0]->Fill(two_hole_scale*(Energy_Top[2] + Energy_Top[3])/2.);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][0][2][1]->Fill(signal_2_[2] + signal_2_[3]);
                 h_Nphe_[0][0][2][1]->Fill(Nphe2_[2] + Nphe2_[3]);
+                h_Edep_[0][0][2][1]->Fill(two_hole_scale*(Energy_Top[2] + Energy_Top[3])/2.);
             }
             
         }
         
         // L1-4
-        if( ((signal_2_[14] + signal_2_[15] > 800.) || signal_2_[12] + signal_2_[13] > 600 ) && signal_2_[2] < 250. && signal_2_[3] < 250. && 
-             signal_2_[6] < 250. ){
+        //if( ((signal_2_[14] + signal_2_[15] > 800.) || signal_2_[12] + signal_2_[13] > 600 ) && signal_2_[2] < 250. && signal_2_[3] < 250. && 
+        if( ((signal_2_[14] + signal_2_[15] > 800.) || signal_2_[12] + signal_2_[13] > 600 ) && signal_2_[2] < 80. && signal_2_[3] < 80. && 
+             signal_2_[6] < 80. ){
             
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][0][3][0]->Fill(signal_2_[0] + signal_2_[1]);
                 h_Nphe_[0][0][3][0]->Fill(Nphe2_[0] + Nphe2_[1]);
+                h_Edep_[0][0][3][0]->Fill(two_hole_scale*(Energy_Top[0] + Energy_Top[1])/2.);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][0][3][1]->Fill(signal_2_[0] + signal_2_[1]);
                 h_Nphe_[0][0][3][1]->Fill(Nphe2_[0] + Nphe2_[1]);
+                h_Edep_[0][0][3][1]->Fill(two_hole_scale*(Energy_Top[0] + Energy_Top[1])/2. );
             }
         
         }
         
         // L1-5
-        if( ((signal_2_[14] + signal_2_[15] > 800.) || signal_2_[9] > 600 ) && signal_2_[0] < 250. && signal_2_[1] < 250. ){
+        //if( ((signal_2_[14] + signal_2_[15] > 800.) || signal_2_[9] > 600 ) && signal_2_[0] < 250. && signal_2_[1] < 250. ){
+        if( ((signal_2_[14] + signal_2_[15] > 800.) || signal_2_[9] > 600 ) && signal_2_[0] < 80. && signal_2_[1] < 80. ){
             
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][0][4][0]->Fill(signal_2_[6]);
                 h_Nphe_[0][0][4][0]->Fill(Nphe2_[6]);
+                h_Edep_[0][0][4][0]->Fill(Energy_Top[6]);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][0][4][1]->Fill(signal_2_[6]);
                 h_Nphe_[0][0][4][1]->Fill(Nphe2_[6]);
+                h_Edep_[0][0][4][1]->Fill(Energy_Top[6]);
             }
         }
         
         
-         // ================================  L2 Bottom tiles =======================================
+         // ================================  L2 Top tiles =======================================
         
         // L2-1
-        if( ((signal_2_[4] + signal_2_[5] > 800.) || signal_2_[7] > 800 ) && signal_2_[10] < 250. && signal_2_[11] < 250. ){
+        //if( ((signal_2_[4] + signal_2_[5] > 800.) || signal_2_[7] > 800 ) && signal_2_[10] < 250. && signal_2_[11] < 250. ){
+        if( ((signal_2_[4] + signal_2_[5] > 800.) || signal_2_[7] > 800 ) && signal_2_[10] < 80. && signal_2_[11] < 80. ){
             
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][1][0][0]->Fill(signal_2_[8]);
                 h_Nphe_[0][1][0][0]->Fill(Nphe2_[8]);
+                h_Edep_[0][1][0][0]->Fill(Energy_Top[8]);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][1][0][1]->Fill(signal_2_[8]);
                 h_Nphe_[0][1][0][1]->Fill(Nphe2_[8]);
+                h_Edep_[0][1][0][1]->Fill(Energy_Top[8]);
             }
             
         }
         
         // L2-2
-        if( ((signal_2_[4] + signal_2_[5] > 800.) || (signal_2_[2] + signal_2_[3]) > 1000 ) && signal_2_[8] < 250. 
-                && signal_2_[12] < 250. && signal_2_[13] < 250. ){
+//        if( ((signal_2_[4] + signal_2_[5] > 800.) || (signal_2_[2] + signal_2_[3]) > 1000 ) && signal_2_[8] < 250. 
+//                && signal_2_[12] < 250. && signal_2_[13] < 250. ){
+        if( ((signal_2_[4] + signal_2_[5] > 800.) || (signal_2_[2] + signal_2_[3]) > 1000 ) && signal_2_[8] < 80. 
+                && signal_2_[12] < 80. && signal_2_[13] < 80. ){
         
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][1][1][0]->Fill(signal_2_[10] + signal_2_[11]);
                 h_Nphe_[0][1][1][0]->Fill(Nphe2_[10] + Nphe2_[11]);
+                h_Edep_[0][1][1][0]->Fill(two_hole_scale*(Energy_Top[10] + Energy_Top[11])/2.);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][1][1][1]->Fill(signal_2_[10] + signal_2_[11]);
                 h_Nphe_[0][1][1][1]->Fill(Nphe2_[10] + Nphe2_[11]);
+                h_Edep_[0][1][1][1]->Fill(two_hole_scale*(Energy_Top[10] + Energy_Top[11])/2.);
             }
             
         }
        
         
         // L2-3
-        if( ((signal_2_[0] + signal_2_[1] > 600.) || (signal_2_[2] + signal_2_[3]) > 1000 ) && signal_2_[10] < 250.  && signal_2_[11] < 250. 
-                && signal_2_[14] < 250. && signal_2_[15] < 250. ){
+//        if( ((signal_2_[0] + signal_2_[1] > 600.) || (signal_2_[2] + signal_2_[3]) > 1000 ) && signal_2_[10] < 250.  && signal_2_[11] < 250. 
+//                && signal_2_[14] < 250. && signal_2_[15] < 250. ){
+        if( ((signal_2_[0] + signal_2_[1] > 600.) || (signal_2_[2] + signal_2_[3]) > 1000 ) && signal_2_[10] < 80.  && signal_2_[11] < 80. 
+                && signal_2_[14] < 80. && signal_2_[15] < 80. ){
         
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][1][2][0]->Fill(signal_2_[12] + signal_2_[13]);
                 h_Nphe_[0][1][2][0]->Fill(Nphe2_[12] + Nphe2_[13]);
+                h_Edep_[0][1][2][0]->Fill(two_hole_scale*(Energy_Top[12] + Energy_Top[13])/2.);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][1][2][1]->Fill(signal_2_[12] + signal_2_[13]);
                 h_Nphe_[0][1][2][1]->Fill(Nphe2_[12] + Nphe2_[13]);
+                h_Edep_[0][1][2][1]->Fill(two_hole_scale*(Energy_Top[12] + Energy_Top[13])/2.);
             }
             
         }
         
         // L2-4
-        if( ( (signal_2_[0] + signal_2_[1] > 600.) || signal_2_[6] > 1000 ) && signal_2_[9] < 250.  && signal_2_[12] < 250. 
-                && signal_2_[13] < 250.){
+//        if( ( (signal_2_[0] + signal_2_[1] > 600.) || signal_2_[6] > 1000 ) && signal_2_[9] < 250.  && signal_2_[12] < 250. 
+//                && signal_2_[13] < 250.){
+        if( ( (signal_2_[0] + signal_2_[1] > 600.) || signal_2_[6] > 1000 ) && signal_2_[9] < 80.  && signal_2_[12] < 80. 
+                && signal_2_[13] < 80.){
         
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][1][3][0]->Fill(signal_2_[14] + signal_2_[15]);
                 h_Nphe_[0][1][3][0]->Fill(Nphe2_[14] + Nphe2_[15]);
+                h_Edep_[0][1][3][0]->Fill(two_hole_scale*(Energy_Top[14] + Energy_Top[15])/2.);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][1][3][1]->Fill(signal_2_[14] + signal_2_[15]);
                 h_Nphe_[0][1][3][1]->Fill(Nphe2_[14] + Nphe2_[15]);
+                h_Edep_[0][1][3][1]->Fill(two_hole_scale*(Energy_Top[14] + Energy_Top[15])/2.);
             }
             
         }
         
         
         // L2-5 
-        if(  (signal_2_[6] > 1000 ) && signal_2_[14] < 250. && signal_2_[15] < 250. ){
+//        if(  (signal_2_[6] > 1000 ) && signal_2_[14] < 250. && signal_2_[15] < 250. ){
+        if(  (signal_2_[6] > 1000 ) && signal_2_[14] < 80. && signal_2_[15] < 80. ){
             
-            if( bot_edge_cosmic ){
+            if( top_edge_cosmic ){
                 h_signal_[0][1][4][0]->Fill(signal_2_[9]);
                 h_Nphe_[0][1][4][0]->Fill(Nphe2_[9]);
+                h_Edep_[0][1][4][0]->Fill(Energy_Top[9]);
             }
-            if( bot_middle_cosmic ){
+            if( top_middle_cosmic ){
                 h_signal_[0][1][4][1]->Fill(signal_2_[9]);
                 h_Nphe_[0][1][4][1]->Fill(Nphe2_[9]);
+                h_Edep_[0][1][4][1]->Fill(Energy_Top[9]);
             }
         }
         
         
         
-        // ================================  L1 Top tiles =======================================
+        // ================================  L1 Bot tiles =======================================
         
         // L1 -1
-        if( signal_1_[8] > 600. && signal_1_[4] < 200. && signal_1_[5] < 200. && signal_1_[10] < 200 && signal_1_[11] < 200. ){
-            if( top_edge_cosmic ){
+        //if( signal_1_[8] > 600. && signal_1_[4] < 200. && signal_1_[5] < 200. && signal_1_[10] < 200 && signal_1_[11] < 200. ){
+        if( signal_1_[8] > 600. && signal_1_[4] < 80. && signal_1_[5] < 80. && signal_1_[10] < 80 && signal_1_[11] < 80. ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][0][0][0]->Fill(signal_1_[7]);
                 h_Nphe_[1][0][0][0]->Fill(Nphe1_[7]);
+                h_Edep_[1][0][0][0]->Fill(Energy_Bot[7]);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][0][0][1]->Fill(signal_1_[7]);
                 h_Nphe_[1][0][0][1]->Fill(Nphe1_[7]);
+                h_Edep_[1][0][0][1]->Fill(Energy_Bot[7]);
             }
         }
  
         
         // L1-2
-        if( ((signal_1_[10] + signal_1_[11] > 600.) || signal_1_[8] > 600. ) && signal_1_[7] < 200. && signal_1_[3] < 200. && signal_1_[2] < 200. ){
+        //if( ((signal_1_[10] + signal_1_[11] > 600.) || signal_1_[8] > 600. ) && signal_1_[7] < 200. && signal_1_[3] < 200. && signal_1_[2] < 200. ){
+        if( ((signal_1_[10] + signal_1_[11] > 700.) || signal_1_[8] > 600. ) && signal_1_[7] < 80. && signal_1_[3] < 80. && signal_1_[2] < 80. ){
             
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][0][1][0]->Fill(signal_1_[4] + signal_1_[5]);
                 h_Nphe_[1][0][1][0]->Fill(Nphe1_[4] + Nphe1_[5]);
+                h_Edep_[1][0][1][0]->Fill(two_hole_scale*(Energy_Bot[4] + Energy_Bot[5])/2.);
             }
             
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][0][1][1]->Fill(signal_1_[4] + signal_1_[5]);
                 h_Nphe_[1][0][1][1]->Fill(Nphe1_[4] + Nphe1_[5]);
+                h_Edep_[1][0][1][1]->Fill(two_hole_scale*(Energy_Bot[4] + Energy_Bot[5])/2.);
             }
             
         }
         
         
         // L1-3
-        if( ((signal_1_[10] + signal_1_[11] > 600.) || signal_1_[12] + signal_1_[13] > 600 ) && signal_1_[4] < 250. && signal_1_[5] < 250. 
-                && signal_1_[0] < 250. && signal_1_[1] < 250. ){
+//        if( ((signal_1_[10] + signal_1_[11] > 600.) || signal_1_[12] + signal_1_[13] > 600 ) && signal_1_[4] < 250. && signal_1_[5] < 250. 
+//                && signal_1_[0] < 250. && signal_1_[1] < 250. ){
+        if( ((signal_1_[10] + signal_1_[11] > 700.) || signal_1_[12] + signal_1_[13] > 700 ) && signal_1_[4] < 80. && signal_1_[5] < 80. 
+                && signal_1_[0] < 80. && signal_1_[1] < 80. ){
             
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][0][2][0]->Fill(signal_1_[2] + signal_1_[3]);
                 h_Nphe_[1][0][2][0]->Fill(Nphe1_[2] + Nphe1_[3]);
+                h_Edep_[1][0][2][0]->Fill(two_hole_scale*(Energy_Bot[2] + Energy_Bot[3])/2.);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][0][2][1]->Fill(signal_1_[2] + signal_1_[3]);
                 h_Nphe_[1][0][2][1]->Fill(Nphe1_[2] + Nphe1_[3]);
+                h_Edep_[1][0][2][1]->Fill(two_hole_scale*(Energy_Bot[2] + Energy_Bot[3])/2.);
             }
             
         }
         
         
         // L1-4
-        if( ((signal_1_[14] + signal_1_[15] > 600.) || signal_1_[12] + signal_1_[13] > 600 ) && signal_1_[2] < 250. && signal_1_[3] < 250. && 
-             signal_1_[6] < 250. && signal_1_[9] < 250. ){
+//        if( ((signal_1_[14] + signal_1_[15] > 600.) || signal_1_[12] + signal_1_[13] > 600 ) && signal_1_[2] < 250. && signal_1_[3] < 250. && 
+//             signal_1_[6] < 250. && signal_1_[9] < 250. ){
+        if( ((signal_1_[14] + signal_1_[15] > 700.) || signal_1_[12] + signal_1_[13] > 700 ) && signal_1_[2] < 80. && signal_1_[3] < 80. && 
+             signal_1_[6] < 80. && signal_1_[9] < 80. ){
             
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][0][3][0]->Fill(signal_1_[0] + signal_1_[1]);
                 h_Nphe_[1][0][3][0]->Fill(Nphe1_[0] + Nphe1_[1]);
+                h_Edep_[1][0][3][0]->Fill(two_hole_scale*(Energy_Bot[0] + Energy_Bot[1])/2.);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][0][3][1]->Fill(signal_1_[0] + signal_1_[1]);
                 h_Nphe_[1][0][3][1]->Fill(Nphe1_[0] + Nphe1_[1]);
+                h_Edep_[1][0][3][1]->Fill(two_hole_scale*(Energy_Bot[0] + Energy_Bot[1])/2.);
             }
         
         }
         
         // L1-5
-        if( ((signal_1_[14] + signal_1_[15] > 600.) || signal_1_[9] > 500 ) && signal_1_[0] < 250. && signal_1_[1] < 250. ){
+        //if( ((signal_1_[14] + signal_1_[15] > 600.) || signal_1_[9] > 500 ) && signal_1_[0] < 250. && signal_1_[1] < 250. ){
+        if( ((signal_1_[14] + signal_1_[15] > 700.) || signal_1_[9] > 500 ) && signal_1_[0] < 80. && signal_1_[1] < 80. ){
             
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][0][4][0]->Fill(signal_1_[6]);
                 h_Nphe_[1][0][4][0]->Fill(Nphe1_[6]);
+                h_Edep_[1][0][4][0]->Fill(Energy_Bot[6]);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][0][4][1]->Fill(signal_1_[6]);
                 h_Nphe_[1][0][4][1]->Fill(Nphe1_[6]);
+                h_Edep_[1][0][4][1]->Fill(Energy_Bot[6]);
             }
         }
         
         
-    // ================================  L2 Top tiles =======================================
+    // ================================  L2 Bot tiles =======================================
         
         // L2-1
-        if( ((signal_1_[4] + signal_1_[5] > 500.) || signal_1_[7] > 300 ) && signal_1_[10] < 250. && signal_1_[11] < 250. ){
+        //if( ((signal_1_[4] + signal_1_[5] > 500.) || signal_1_[7] > 300 ) && signal_1_[10] < 250. && signal_1_[11] < 250. ){
+        if( ((signal_1_[4] + signal_1_[5] > 600.) || signal_1_[7] > 500 ) && signal_1_[10] < 80. && signal_1_[11] < 80. ){
             
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][1][0][0]->Fill(signal_1_[8]);
                 h_Nphe_[1][1][0][0]->Fill(Nphe1_[8]);
+                h_Edep_[1][1][0][0]->Fill(Energy_Bot[8]);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][1][0][1]->Fill(signal_1_[8]);
                 h_Nphe_[1][1][0][1]->Fill(Nphe1_[8]);
+                h_Edep_[1][1][0][1]->Fill(Energy_Bot[8]);
             }
             
         }
         
         
         // L2-2
-        if( ((signal_1_[4] + signal_1_[5] > 500.) || (signal_1_[2] + signal_1_[3]) > 400 ) && signal_1_[8] < 250. 
-                && signal_1_[12] < 250. && signal_1_[13] < 250. ){
+        //if( ((signal_1_[4] + signal_1_[5] > 500.) || (signal_1_[2] + signal_1_[3]) > 400 ) && signal_1_[8] < 250. && signal_1_[12] < 250. && signal_1_[13] < 250. ){
+        if( ((signal_1_[4] + signal_1_[5] > 650.) || (signal_1_[2] + signal_1_[3]) > 600 ) && signal_1_[8] < 80. && signal_1_[12] < 80. && signal_1_[13] < 80. ){
         
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][1][1][0]->Fill(signal_1_[10] + signal_1_[11]);
                 h_Nphe_[1][1][1][0]->Fill(Nphe1_[10] + Nphe1_[11]);
+                h_Edep_[1][1][1][0]->Fill(two_hole_scale*(Energy_Bot[10] + Energy_Bot[11])/2.);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][1][1][1]->Fill(signal_1_[10] + signal_1_[11]);
                 h_Nphe_[1][1][1][1]->Fill(Nphe1_[10] + Nphe1_[11]);
+                h_Edep_[1][1][1][1]->Fill(two_hole_scale*(Energy_Bot[10] + Energy_Bot[11])/2.);
             }
             
         }
         
         
          // L2-3
-        if( ((signal_1_[0] + signal_1_[1] > 600.) || (signal_1_[2] + signal_1_[3]) > 400 ) && signal_1_[10] < 250.  && signal_1_[11] < 250. 
-                && signal_1_[14] < 250. && signal_1_[15] < 250. ){
+//        if( ((signal_1_[0] + signal_1_[1] > 600.) || (signal_1_[2] + signal_1_[3]) > 400 ) && signal_1_[10] < 250.  && signal_1_[11] < 250. 
+//                && signal_1_[14] < 250. && signal_1_[15] < 250. ){
+        if( ((signal_1_[0] + signal_1_[1] > 600.) || (signal_1_[2] + signal_1_[3]) > 400 ) && signal_1_[10] < 80.  && signal_1_[11] < 80. 
+                && signal_1_[14] < 80. && signal_1_[15] < 80. ){
                     
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][1][2][0]->Fill(signal_1_[12] + signal_1_[13]);
                 h_Nphe_[1][1][2][0]->Fill(Nphe1_[12] + Nphe1_[13]);
+                h_Edep_[1][1][2][0]->Fill(two_hole_scale*(Energy_Bot[12] + Energy_Bot[13])/2.);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][1][2][1]->Fill(signal_1_[12] + signal_1_[13]);
                 h_Nphe_[1][1][2][1]->Fill(Nphe1_[12] + Nphe1_[13]);
+                h_Edep_[1][1][2][1]->Fill(two_hole_scale*(Energy_Bot[12] + Energy_Bot[13])/2.);
             }
             
         }
        
         
         // L2-4
-        if( ( (signal_1_[0] + signal_1_[1] > 600.) || signal_1_[6] > 300 ) && signal_1_[9] < 250.  && signal_1_[12] < 250. 
-                && signal_1_[13] < 250.){
+//        if( ( (signal_1_[0] + signal_1_[1] > 600.) || signal_1_[6] > 300 ) && signal_1_[9] < 250.  && signal_1_[12] < 250. && signal_1_[13] < 250.){
+        if( ( (signal_1_[0] + signal_1_[1] > 600.) || signal_1_[6] > 500 ) && signal_1_[9] < 80. && signal_1_[12] < 80. && signal_1_[13] < 80.){
         
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][1][3][0]->Fill(signal_1_[14] + signal_1_[15]);
                 h_Nphe_[1][1][3][0]->Fill(Nphe1_[14] + Nphe1_[15]);
+                h_Edep_[1][1][3][0]->Fill(two_hole_scale*(Energy_Bot[14] + Energy_Bot[15])/2.);
             }
-            if( top_middle_cosmic ){
+            if( bot_middle_cosmic ){
                 h_signal_[1][1][3][1]->Fill(signal_1_[14] + signal_1_[15]);
                 h_Nphe_[1][1][3][1]->Fill(Nphe1_[14] + Nphe1_[15]);
+                h_Edep_[1][1][3][1]->Fill(two_hole_scale*(Energy_Bot[14] + Energy_Bot[15])/2.);
             }
             
         }
         
         // L2-5 
-        if(  (signal_1_[6] > 300 ) && signal_1_[14] < 250. && signal_1_[15] < 250. ){
+//        if(  (signal_1_[6] > 300 ) && signal_1_[14] < 250. && signal_1_[15] < 250. ){
+        if(  (signal_1_[6] > 400 ) && signal_1_[14] < 80. && signal_1_[15] < 80. ){
             
-            if( top_edge_cosmic ){
+            if( bot_edge_cosmic ){
                 h_signal_[1][1][4][0]->Fill(signal_1_[9]);
                 h_Nphe_[1][1][4][0]->Fill(Nphe1_[9]);
+                h_Edep_[1][1][4][0]->Fill(Energy_Bot[9]);
             }
-            if (top_middle_cosmic) {
+            if (bot_middle_cosmic) {
                 h_signal_[1][1][4][1]->Fill(signal_1_[9]);
                 h_Nphe_[1][1][4][1]->Fill(Nphe1_[9]);
+                h_Edep_[1][1][4][1]->Fill(Energy_Bot[9]);
             }
         }
 
@@ -458,7 +548,7 @@ void Check_Assembled_tiles::Loop() {
 
     TF1 *f_Gaus = new TF1("f_Gaus", "[0]*TMath::Gaus(x, [1], [2])", 50., 250);
 
-    string top_bot_names[2] = {"Top", "Bot"};
+    string top_bot_names[2] = {"Bot", "Top"};
 
     ofstream out_ped("Hodo_Pedestals.dat");
 

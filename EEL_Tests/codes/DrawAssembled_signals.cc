@@ -17,6 +17,7 @@
 #include <TH1D.h>
 #include <TH2D.h>
 #include <TFile.h>
+#include <TLine.h>
 #include <TCanvas.h>
 #include <TLatex.h>
 
@@ -41,7 +42,11 @@ void DrawAssembled_signals() {
     TLatex *lat1 = new TLatex();
     lat1->SetNDC();
     
-    int run = 322;
+    TLine *line1 = new TLine();
+    line1->SetLineColor(2);
+    
+    //int run = 322;
+    int run = 344;
     
     TFile *file_in = new TFile(Form("../Data/Check_Assembled_%d.root", run));
     
@@ -49,12 +54,16 @@ void DrawAssembled_signals() {
     
     TH1D * h_signal_[n_half][n_layer][n_tile_perlayer][n_tile_side];
     TH1D * h_Nphe_[n_half][n_layer][n_tile_perlayer][n_tile_side];
+    TH1D * h_Edep_[n_half][n_layer][n_tile_perlayer][n_tile_side];
     
     TCanvas *c1 = new TCanvas("c1", "", 1500, 1200);
     c1->Divide(5, 4, 0., 0.);
 
     TCanvas *c2 = new TCanvas("c2", "", 1500, 1200);
     c2->Divide(5, 4, 0., 0.);
+
+    TCanvas *c3 = new TCanvas("c3", "", 1500, 1200);
+    c3->Divide(5, 4, 0., 0.);
 
     for (int i_half = 0; i_half < n_half; i_half++) {
         for (int i_layer = 0; i_layer < n_layer; i_layer++) {
@@ -73,6 +82,12 @@ void DrawAssembled_signals() {
                     
                     h_Nphe_[i_half][i_layer][i_ind][i_side] = (TH1D*)file_in->Get(nphe_hist_name.c_str());
                     h_Nphe_[i_half][i_layer][i_ind][i_side]->SetLineColor(hist_col[i_side]);
+                    
+                    
+                    string edep_hist_name = "h_Edep_" + half_names[i_half]+"_"+Layer_names[i_layer]+"_"+
+                          Tile_Indexes[i_ind]+"_"+Tile_side_names[i_side];
+                    h_Edep_[i_half][i_layer][i_ind][i_side] = (TH1D*)file_in->Get(edep_hist_name.c_str());
+                    h_Edep_[i_half][i_layer][i_ind][i_side]->SetLineColor(hist_col[i_side]);
                 }
                 
                 c1->cd( i_half*n_layer*n_tile_perlayer + n_tile_perlayer*i_layer + i_ind + 1);
@@ -92,6 +107,11 @@ void DrawAssembled_signals() {
 //                double Height = f_Pois->GetParameter(0);
 //                lat1->DrawLatex(0.65, 0.8, Form("H = %1.2f", Height));
 //                lat1->DrawLatex(0.65, 0.75, Form("#mu = %1.2f", mu));
+                
+                c3->cd( i_half*n_layer*n_tile_perlayer + n_tile_perlayer*i_layer + i_ind + 1);
+                h_Edep_[i_half][i_layer][i_ind][1]->Draw();
+                h_Edep_[i_half][i_layer][i_ind][0]->Draw("Same");
+                line1->DrawLine(250., 0., 250., h_Edep_[i_half][i_layer][i_ind][1]->GetMaximum());
             }
         }
 
@@ -104,6 +124,9 @@ void DrawAssembled_signals() {
     c2->Print(Form("Figs/Assembled_Nphe_%d.eps", run));
     c2->Print(Form("Figs/Assembled_Nphe_%d.pdf", run));
     c2->Print(Form("Figs/Assembled_Nphe_%d.png", run));
-    
+  
+    c3->Print(Form("Figs/Assembled_Edep_%d.eps", run));
+    c3->Print(Form("Figs/Assembled_Edep_%d.pdf", run));
+    c3->Print(Form("Figs/Assembled_Edep_%d.png", run));
 }
 

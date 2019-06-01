@@ -177,14 +177,6 @@ int main(int argc, char** argv) {
 
                                 int hodo_d = int(slot) - 3; // Slots are 3 and 4
 
-                                //                                cout << "slot = " << int(slot) << endl;
-                                //                                cout << "ch = " << ch << endl;
-                                //                                cout << "hodo_d = " << hodo_d << endl;
-                                //                                cout << "hodo_ch = " << hodo_ch << endl;
-                                //                                cout << "   === == == == == == == == == == == == ==" << endl;
-                                //cout<<"channel = "<<ch<<endl;
-
-                                //cout<<"ns = "<<ns<<endl;
                                 //      cout<<" ================= = = = = = = = =  channel = "<<ch<<endl;
 
 
