@@ -1,0 +1,60 @@
+\documentclass[letterpaper,12pt]{article}
+%documentclass[superscriptaddress,preprintnumbers,amsmath,amssymb,aps,11pt]{revtex4}
+%\usepackage[]{authblk}
+%\usepackage{graphics}
+\usepackage[dvipdf]{graphics}
+%\usepackage{subfig}  % For subfloats
+\usepackage{color}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{epsfig}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage{caption}
+%\usepackage{subcaption}
+\usepackage{subfig}
+\usepackage{authblk}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{lineno}
+%\linenumbers
+
+\oddsidemargin = -14mm
+\topmargin = -2.9cm
+\textwidth = 19cm
+\textheight = 24cm
+
+\def \rarr {\rightarrow}
+\def \grinp {\includegraphics}
+\def \tw {\textwidth}
+\def\dfrac#1#2{\displaystyle{{#1}\over{#2}}}
+\def \dstl {\displaystyle}
+\definecolor{GREEN}{rgb}{0.,0.8,0}
+\definecolor{RED}{rgb}{1,0,0}
+\definecolor{ORANGE}{rgb}{1,0.5,0}
+
+\title{Manual for HPS Hodoscope}
+\author{Rafayel Paremuzyan}
+
+\begin{document}
+ \maketitle
+ 
+ \section{General description of the Hodoscope}
+ 
+ The Hodoscope (hodo) is a charge particle detector. It's main purpose is to help to suppress large photon background at the trigger level. Main trigger of HPS will be a coincidence (latheral and time) between hits in Hodoscope and clusters in ECal. The hodo is installed insde the SVT vacuum chamber and is located in between the Layer 6 of HPS SVT and the ECal front face.
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% F I G U R E %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ \begin{figure}[!htb]
+ \centering
+  \grinp[width=0.95\tw]{img/HodoGeneral_Vewi1.pdf}
+  \caption{An engineering drawing of the hodoscope. The pictur shows consize description of some parts.}
+  \label{fig:hodo_gen_view1}
+ \end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% F I G U R E %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The Fig.\ref{fig:hodo_gen_view1} shows the General view of the hodoscope.
+ 
+ 
+ \section{Channel Mapping}
+ \section{HV settings}
+ \section{PMTs}
+ \section{PMT housing}
+ 
+\end{document}
