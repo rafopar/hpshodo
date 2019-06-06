@@ -33,8 +33,8 @@
 #define GET_L64(b,i) ((unsigned long long *)(&b[i]))[0]; i+=8;
 
 #define FADC_1_BANK 57601
-#define TOP_CRATE_TAG 39
-#define BOT_CRATE_TAG 37
+#define TOP_CRATE_TAG 37
+#define BOT_CRATE_TAG 39
 #define TI_CRATE_TAG 46
 #define TI_TAG 57610
 
